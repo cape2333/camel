@@ -14,6 +14,8 @@
 
 import os
 
+from dotenv import load_dotenv
+
 from camel.agents import ChatAgent
 from camel.configs import ChatGPTConfig
 from camel.models import ModelFactory
@@ -21,6 +23,8 @@ from camel.toolkits import TerminalToolkit
 from camel.toolkits.resend_toolkit import ResendToolkit
 from camel.toolkits.search_toolkit import SearchToolkit
 from camel.types import ModelPlatformType, ModelType
+
+load_dotenv()  # Load environment variables from .env file
 
 # Get current script directory
 base_dir = os.path.dirname(os.path.abspath(__file__))
