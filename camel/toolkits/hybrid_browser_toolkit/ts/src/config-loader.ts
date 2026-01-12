@@ -22,6 +22,7 @@ export interface BrowserConfig {
   screenshotTimeout: number;
   pageStabilityTimeout: number;
   domContentLoadedTimeout: number;
+  domStabilityTimeout: number;       // Timeout for MutationObserver DOM stability check
 
   // Action timeouts
   popupTimeout: number;
@@ -112,6 +113,7 @@ function getDefaultBrowserConfig(): BrowserConfig {
     screenshotTimeout: 15000,
     pageStabilityTimeout: 1500,
     domContentLoadedTimeout: 5000,
+    domStabilityTimeout: 500,
     popupTimeout: 5000,
     clickTimeout: 3000,
     tabIdPrefix: 'tab-',

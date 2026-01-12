@@ -1511,24 +1511,57 @@ export class HybridBrowserSession {
     }
   }
 
-  private async waitForPageStability(page: Page): Promise<{ domContentLoadedTime: number; networkIdleTime: number }> {
-    let domContentLoadedTime = 0;
-    let networkIdleTime = 0;
-
+  private async waitForPageStability(page: Page): Promise<{ 
+    domContentLoadedTime: number; 
+    networkIdleTime: number; 
+    domStabilityTime: number;
+  }> {
     try {
-      const domStart = Date.now();
       const browserConfig = this.configLoader.getBrowserConfig();
-      await page.waitForLoadState(browserConfig.domContentLoadedState as any, { timeout: browserConfig.pageStabilityTimeout });
-      domContentLoadedTime = Date.now() - domStart;
+      
+      const combinedStabilityTimeout = Math.max(
+        browserConfig.pageStabilityTimeout,
+        browserConfig.networkIdleTimeout,
+        browserConfig.domStabilityTimeout
+      );
 
-      const networkStart = Date.now();
-      await page.waitForLoadState(browserConfig.networkIdleState as any, { timeout: browserConfig.networkIdleTimeout });
-      networkIdleTime = Date.now() - networkStart;
+      const domContentLoadedPromise = (async () => {
+        const start = Date.now();
+        await page.waitForLoadState(browserConfig.domContentLoadedState as any, { 
+            timeout: browserConfig.pageStabilityTimeout 
+          });
+        return Date.now() - start;
+      })();
+
+      const networkIdlePromise = (async () => {
+        const start = Date.now();
+        await page.waitForLoadState(browserConfig.networkIdleState as any, { 
+            timeout: browserConfig.networkIdleTimeout 
+          });
+
+        return Date.now() - start;
+      })();
+
+      const domStabilityPromise = (async () => {
+        const start = Date.now();
+        await this.waitForDOMStability(page, browserConfig.domStabilityTimeout);
+
+        return Date.now() - start;
+      })();
+
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Combined stability timeout')), combinedStabilityTimeout)
+      );
+
+      const [domContentLoadedTime, networkIdleTime, domStabilityTime] = await Promise.race([
+        Promise.all([domContentLoadedPromise, networkIdlePromise, domStabilityPromise]),
+        timeoutPromise
+      ]);
+
+      return { domContentLoadedTime, networkIdleTime, domStabilityTime };
     } catch (error) {
-      // Continue even if stability wait fails
+      return { domContentLoadedTime: 0, networkIdleTime: 0, domStabilityTime: 0 };
     }
-
-    return { domContentLoadedTime, networkIdleTime };
   }
 
   async visitPage(url: string): Promise<ActionResult & { newTabId?: string }> {

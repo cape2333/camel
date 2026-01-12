@@ -14,6 +14,10 @@
 import asyncio
 import logging
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from camel.agents import ChatAgent
 from camel.models import ModelFactory
 from camel.toolkits import HybridBrowserToolkit
@@ -36,8 +40,8 @@ logging.getLogger('camel.toolkits.hybrid_browser_toolkit').setLevel(
 USER_DATA_DIR = "User_Data"
 
 model_backend = ModelFactory.create(
-    model_platform=ModelPlatformType.OPENAI,
-    model_type=ModelType.GPT_4O,
+    model_platform=ModelPlatformType.DEFAULT,
+    model_type=ModelType.DEFAULT,
     model_config_dict={"temperature": 0.0, "top_p": 1},
 )
 
@@ -88,7 +92,7 @@ print(f"Custom tools: {web_toolkit_custom.enabled_tools}")
 agent = ChatAgent(
     model=model_backend,
     tools=[*web_toolkit_custom.get_tools()],
-    max_iteration=10,
+    max_iteration=20,
 )
 
 TASK_PROMPT = r"""
@@ -109,8 +113,11 @@ async def main() -> None:
         print("Task:", TASK_PROMPT)
         print(f"Using user data directory: {USER_DATA_DIR}")
         print(f"Enabled tools: {web_toolkit_custom.enabled_tools}")
+
+        print(str(response.info['tool_calls']))
         print("\nResponse from agent:")
         print(response.msgs[0].content if response.msgs else "<no response>")
+        print(""" actual response {{response.msgs[0]}} """)
     finally:
         # Ensure browser is closed properly
         print("\nClosing browser...")
