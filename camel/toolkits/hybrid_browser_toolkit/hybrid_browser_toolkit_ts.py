@@ -89,6 +89,8 @@ class HybridBrowserToolkit(BaseToolkit, RegisteredAgentToolkit):
         "browser_console_exec",
         "browser_sheet_input",
         "browser_sheet_read",
+        "browser_upload_file",
+        "browser_download_file",
     ]
 
     def __init__(
@@ -1873,6 +1875,161 @@ class HybridBrowserToolkit(BaseToolkit, RegisteredAgentToolkit):
                 "total_tabs": 0,
             }
 
+    async def browser_upload_file(
+        self, *, ref: str, file_path: str
+    ) -> Dict[str, Any]:
+        r"""Uploads a file to a file input element on the page.
+
+        This method finds a file input element (or a nearby file input) and
+        uploads the specified file to it using Playwright's setInputFiles API.
+
+        Args:
+            ref (str): The `ref` ID of the file input element, or an element
+                near the file input (like a button that opens a file dialog).
+                The ref ID is obtained from a page snapshot.
+            file_path (str): The local path to the file to upload. This should
+                be an absolute path or a path relative to the current working
+                directory.
+
+        Returns:
+            Dict[str, Any]: A dictionary with the result of the action:
+                - "result" (str): Confirmation of the action or error message.
+                - "success" (bool): Whether the upload succeeded.
+                - "snapshot" (str): A textual snapshot of the page after the
+                  upload.
+                - "tabs" (List[Dict]): Information about all open tabs.
+                - "current_tab" (int): Index of the active tab.
+                - "total_tabs" (int): Total number of open tabs.
+
+        Example:
+            >>> result = await toolkit.browser_upload_file(
+            ...     ref="e3", file_path="/path/to/document.pdf"
+            ... )
+            >>> print(result["result"])
+            "File uploaded successfully to ref e3"
+        """
+        import os
+
+        try:
+            # Validate file exists
+            if not os.path.isabs(file_path):
+                file_path = os.path.abspath(file_path)
+
+            if not os.path.exists(file_path):
+                return {
+                    "result": f"File not found: {file_path}",
+                    "success": False,
+                    "snapshot": "",
+                    "tabs": [],
+                    "current_tab": 0,
+                    "total_tabs": 0,
+                }
+
+            ws_wrapper = await self._get_ws_wrapper()
+            result = await ws_wrapper.upload_file(ref, file_path)
+
+            tab_info = await ws_wrapper.get_tab_info()
+
+            return {
+                "result": result.get("result", "Upload completed"),
+                "success": result.get("success", False),
+                "snapshot": result.get("snapshot", ""),
+                "tabs": tab_info,
+                "current_tab": next(
+                    (
+                        i
+                        for i, tab in enumerate(tab_info)
+                        if tab.get("is_current")
+                    ),
+                    0,
+                ),
+                "total_tabs": len(tab_info),
+            }
+        except Exception as e:
+            logger.error(f"Failed to upload file: {e}")
+            return {
+                "result": f"Error uploading file: {e}",
+                "success": False,
+                "snapshot": "",
+                "tabs": [],
+                "current_tab": 0,
+                "total_tabs": 0,
+            }
+
+    async def browser_download_file(
+        self, *, ref: str, save_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
+        r"""Downloads a file by clicking a download link or button.
+
+        This method clicks on an element that triggers a file download, waits
+        for the download to complete, and saves the file to the specified
+        directory.
+
+        Args:
+            ref (str): The `ref` ID of the download trigger element (link or
+                button). The ref ID is obtained from a page snapshot.
+            save_dir (Optional[str]): The directory where the downloaded file
+                should be saved. If None, files are saved to a temporary
+                directory. Defaults to None.
+
+        Returns:
+            Dict[str, Any]: A dictionary with the result of the action:
+                - "result" (str): Confirmation of the action or error message.
+                - "success" (bool): Whether the download succeeded.
+                - "file_path" (str): The full path to the downloaded file.
+                - "file_name" (str): The name of the downloaded file.
+                - "file_size" (int): The size of the downloaded file in bytes.
+                - "snapshot" (str): A textual snapshot of the page after the
+                  action.
+                - "tabs" (List[Dict]): Information about all open tabs.
+                - "current_tab" (int): Index of the active tab.
+                - "total_tabs" (int): Total number of open tabs.
+
+        Example:
+            >>> result = await toolkit.browser_download_file(
+            ...     ref="e5", save_dir="/downloads"
+            ... )
+            >>> print(result["file_path"])
+            "/downloads/document.pdf"
+        """
+        try:
+            ws_wrapper = await self._get_ws_wrapper()
+            result = await ws_wrapper.download_file(ref, save_dir)
+
+            tab_info = await ws_wrapper.get_tab_info()
+
+            return {
+                "result": result.get("result", "Download completed"),
+                "success": result.get("success", False),
+                "file_path": result.get("filePath", ""),
+                "file_name": result.get("fileName", ""),
+                "file_size": result.get("fileSize", 0),
+                "snapshot": result.get("snapshot", ""),
+                "tabs": tab_info,
+                "current_tab": next(
+                    (
+                        i
+                        for i, tab in enumerate(tab_info)
+                        if tab.get("is_current")
+                    ),
+                    0,
+                ),
+                "total_tabs": len(tab_info),
+            }
+        except Exception as e:
+            logger.error(f"Failed to download file: {e}")
+            return {
+                "result": f"Error downloading file: {e}",
+                "success": False,
+                "file_path": "",
+                "file_name": "",
+                "file_size": 0,
+                "snapshot": "",
+                "tabs": [],
+                "current_tab": 0,
+                "total_tabs": 0,
+            }
+
     def clone_for_new_session(
         self, new_session_id: Optional[str] = None
     ) -> "HybridBrowserToolkit":
@@ -1941,6 +2098,8 @@ class HybridBrowserToolkit(BaseToolkit, RegisteredAgentToolkit):
             "browser_console_exec": self.browser_console_exec,
             "browser_sheet_input": self.browser_sheet_input,
             "browser_sheet_read": self.browser_sheet_read,
+            "browser_upload_file": self.browser_upload_file,
+            "browser_download_file": self.browser_download_file,
         }
 
         enabled_tools = []

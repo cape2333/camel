@@ -966,6 +966,42 @@ class WebSocketBrowserWrapper:
         )
         return response
 
+    @action_logger
+    async def upload_file(
+        self, ref: str, file_path: str
+    ) -> Dict[str, Any]:
+        """Upload a file to a file input element.
+
+        Args:
+            ref: The ref ID of the file input or a nearby element.
+            file_path: Path to the file to upload.
+
+        Returns:
+            Dict with success status and message.
+        """
+        response = await self._send_command(
+            'upload_file', {'ref': ref, 'filePath': file_path}
+        )
+        return response
+
+    @action_logger
+    async def download_file(
+        self, ref: str, save_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Download a file by clicking a download link/button.
+
+        Args:
+            ref: The ref ID of the download trigger element.
+            save_dir: Optional directory to save the file.
+
+        Returns:
+            Dict with success status, file path, name, and size.
+        """
+        response = await self._send_command(
+            'download_file', {'ref': ref, 'saveDir': save_dir}
+        )
+        return response
+
     async def _read_and_log_output(self):
         """Read stdout from Node.js process & handle SERVER_READY + logging."""
         if not self.process:

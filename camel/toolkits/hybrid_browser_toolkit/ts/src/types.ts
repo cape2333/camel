@@ -121,9 +121,31 @@ export interface PressKeyAction {
   keys: string[];
 }
 
-export type BrowserAction = ClickAction | TypeAction | SelectAction | ScrollAction | EnterAction | MouseAction | MouseDragAction | PressKeyAction;
+export interface UploadFileAction {
+  type: 'upload_file';
+  ref: string;
+  filePath: string;
+}
+
+export interface DownloadFileAction {
+  type: 'download_file';
+  ref: string;
+  saveDir?: string;
+}
+
+export type BrowserAction = ClickAction | TypeAction | SelectAction | ScrollAction | EnterAction | MouseAction | MouseDragAction | PressKeyAction | UploadFileAction | DownloadFileAction;
 
 export interface VisualMarkResult {
   text: string;
   images: string[];
 }
+
+export interface FileOperationResult {
+  success: boolean;
+  message: string;
+  filePath?: string;
+  fileName?: string;
+  fileSize?: number;
+  error?: string;
+}
+

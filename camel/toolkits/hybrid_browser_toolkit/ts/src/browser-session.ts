@@ -1881,7 +1881,147 @@ export class HybridBrowserSession {
     return tabInfo;
   }
 
+  /**
+   * Upload a file to a file input element
+   * @param ref - The ref ID of the file input or a nearby element
+   * @param filePath - Path to the file to upload
+   */
+  async performUploadFile(ref: string, filePath: string): Promise<{ success: boolean; message: string; error?: string }> {
+    try {
+      const page = await this.getCurrentPage();
+      
+      // Ensure we have the latest snapshot
+      await this.getSnapshot(page);
+      
+      // Use Playwright's aria-ref selector
+      const selector = `aria-ref=${ref}`;
+      const element = await page.locator(selector).first();
+      const exists = await element.count() > 0;
+      
+      if (!exists) {
+        return { success: false, message: '', error: `Element with ref ${ref} not found` };
+      }
+      
+      // Check if it's a file input
+      const tagName = await element.evaluate(el => el.tagName.toLowerCase());
+      const inputType = await element.getAttribute('type');
+      
+      if (tagName === 'input' && inputType === 'file') {
+        // Direct file input - use setInputFiles
+        await element.setInputFiles(filePath);
+        return { success: true, message: `File uploaded successfully to ref ${ref}` };
+      }
+      
+      // Not a file input - try to find a file input nearby
+      // First check if clicking this element triggers a file dialog
+      const fileInputNearby = await page.locator(`aria-ref=${ref}`).locator('xpath=ancestor::*[.//input[@type="file"]]//input[@type="file"]').first();
+      const nearbyExists = await fileInputNearby.count() > 0;
+      
+      if (nearbyExists) {
+        await fileInputNearby.setInputFiles(filePath);
+        return { success: true, message: `File uploaded successfully to file input near ref ${ref}` };
+      }
+      
+      // Try to find any file input on the page and use the closest one
+      const allFileInputs = await page.locator('input[type="file"]').all();
+      if (allFileInputs.length > 0) {
+        // Use the first visible file input
+        for (const input of allFileInputs) {
+          const isVisible = await input.isVisible();
+          if (isVisible || await input.count() > 0) {
+            await input.setInputFiles(filePath);
+            return { success: true, message: `File uploaded successfully to closest file input` };
+          }
+        }
+        // If no visible one, use the first one (might be hidden)
+        await allFileInputs[0].setInputFiles(filePath);
+        return { success: true, message: `File uploaded successfully to hidden file input` };
+      }
+      
+      return { success: false, message: '', error: `No file input found near element with ref ${ref}` };
+    } catch (error) {
+      console.error('[performUploadFile] Error:', error);
+      return { success: false, message: '', error: `Upload failed: ${error}` };
+    }
+  }
+
+  /**
+   * Download a file by clicking a download link/button
+   * @param ref - The ref ID of the download trigger element
+   * @param saveDir - Optional directory to save the file (defaults to cache dir)
+   */
+  async performDownloadFile(ref: string, saveDir?: string): Promise<{ success: boolean; message: string; filePath?: string; fileName?: string; fileSize?: number; error?: string }> {
+    try {
+      const page = await this.getCurrentPage();
+      
+      // Ensure we have the latest snapshot
+      await this.getSnapshot(page);
+      
+      // Use Playwright's aria-ref selector
+      const selector = `aria-ref=${ref}`;
+      const element = await page.locator(selector).first();
+      const exists = await element.count() > 0;
+      
+      if (!exists) {
+        return { success: false, message: '', error: `Element with ref ${ref} not found` };
+      }
+      
+      // Set up download handler before clicking
+      const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+      
+      // Click the element to trigger download
+      await element.click();
+      
+      try {
+        const download = await downloadPromise;
+        
+        // Get download info
+        const suggestedFilename = download.suggestedFilename();
+        
+        // Determine save path
+        const fs = await import('fs');
+        const path = await import('path');
+        
+        let targetDir = saveDir;
+        if (!targetDir) {
+          // Use a default temp directory
+          const os = await import('os');
+          targetDir = path.join(os.tmpdir(), 'camel_downloads');
+        }
+        
+        // Ensure directory exists
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true });
+        }
+        
+        const savePath = path.join(targetDir, suggestedFilename);
+        
+        // Save the file
+        await download.saveAs(savePath);
+        
+        // Get file size
+        const stats = fs.statSync(savePath);
+        const fileSize = stats.size;
+        
+        return { 
+          success: true, 
+          message: `File downloaded successfully`,
+          filePath: savePath,
+          fileName: suggestedFilename,
+          fileSize: fileSize
+        };
+      } catch (downloadError) {
+        // Download timeout or error
+        return { success: false, message: '', error: `Download failed: ${downloadError}` };
+      }
+    } catch (error) {
+      console.error('[performDownloadFile] Error:', error);
+      return { success: false, message: '', error: `Download operation failed: ${error}` };
+    }
+  }
+
   async takeScreenshot(): Promise<{ buffer: Buffer; timing: { screenshot_time_ms: number } }> {
+
     const startTime = Date.now();
     const page = await this.getCurrentPage();
 

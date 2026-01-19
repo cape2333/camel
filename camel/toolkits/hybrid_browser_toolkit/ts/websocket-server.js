@@ -240,6 +240,14 @@ class WebSocketBrowserServer {
         if (!this.toolkit) throw new Error('Toolkit not initialized');
         return await this.toolkit.waitUser(params.timeout);
 
+      case 'upload_file':
+        if (!this.toolkit) throw new Error('Toolkit not initialized');
+        return await this.toolkit.uploadFile(params.ref, params.filePath);
+
+      case 'download_file':
+        if (!this.toolkit) throw new Error('Toolkit not initialized');
+        return await this.toolkit.downloadFile(params.ref, params.saveDir);
+
       case 'shutdown': {
         console.log('Shutting down server...');
 

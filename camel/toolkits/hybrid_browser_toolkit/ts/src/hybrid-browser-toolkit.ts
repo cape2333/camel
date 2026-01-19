@@ -586,4 +586,114 @@ export class HybridBrowserToolkit {
     }
   }
 
+  async uploadFile(ref: string, filePath: string): Promise<any> {
+    const startTime = Date.now();
+    
+    try {
+      const result = await this.session.performUploadFile(ref, filePath);
+      
+      const snapshotStart = Date.now();
+      const snapshot = await this.getSnapshotForAction(this.viewportLimit);
+      const snapshotTime = Date.now() - snapshotStart;
+      
+      const totalTime = Date.now() - startTime;
+      
+      if (result.success) {
+        return {
+          success: true,
+          result: result.message,
+          snapshot: snapshot,
+          timing: {
+            total_time_ms: totalTime,
+            snapshot_time_ms: snapshotTime,
+          },
+        };
+      } else {
+        return {
+          success: false,
+          result: result.error || 'Upload failed',
+          snapshot: snapshot,
+          timing: {
+            total_time_ms: totalTime,
+            snapshot_time_ms: snapshotTime,
+          },
+        };
+      }
+    } catch (error) {
+      const totalTime = Date.now() - startTime;
+      return {
+        success: false,
+        result: `Upload failed: ${error}`,
+        snapshot: '',
+        timing: {
+          total_time_ms: totalTime,
+          snapshot_time_ms: 0,
+        },
+      };
+    }
+  }
+
+  async downloadFile(ref: string, saveDir?: string): Promise<any> {
+    const startTime = Date.now();
+    
+    try {
+      const result = await this.session.performDownloadFile(ref, saveDir);
+      
+      const snapshotStart = Date.now();
+      const snapshot = await this.getSnapshotForAction(this.viewportLimit);
+      const snapshotTime = Date.now() - snapshotStart;
+      
+      const totalTime = Date.now() - startTime;
+      
+      if (result.success) {
+        return {
+          success: true,
+          result: result.message,
+          filePath: result.filePath,
+          fileName: result.fileName,
+          fileSize: result.fileSize,
+          snapshot: snapshot,
+          timing: {
+            total_time_ms: totalTime,
+            snapshot_time_ms: snapshotTime,
+          },
+        };
+      } else {
+        return {
+          success: false,
+          result: result.error || 'Download failed',
+          snapshot: snapshot,
+          timing: {
+            total_time_ms: totalTime,
+            snapshot_time_ms: snapshotTime,
+          },
+        };
+      }
+    } catch (error) {
+      const totalTime = Date.now() - startTime;
+      return {
+        success: false,
+        result: `Download failed: ${error}`,
+        snapshot: '',
+        timing: {
+          total_time_ms: totalTime,
+          snapshot_time_ms: 0,
+        },
+      };
+    }
+  }
+
+  async waitUser(timeout?: number): Promise<any> {
+    // Wait for user action - in this context it just waits for the specified timeout
+    const waitTime = timeout || 30000; // Default 30 seconds
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+    
+    const snapshot = await this.getSnapshotForAction(this.viewportLimit);
+    return {
+      result: `Waited for ${waitTime}ms`,
+      snapshot: snapshot,
+    };
+  }
+
 }
+
